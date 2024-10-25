@@ -121,12 +121,140 @@ from nsls
 where Article in ('881LA1319961239-42') order by Calday
 ```
 ### Check_Orders_2_Screens
-###
-###
-###
-###
-###
-###
-###
-###
-###
+
+```
+declare @slsorder as varchar(10)
+set @slsorder='0133729706'
+
+SELECT [SalesDocument] as 'SalesOrder'
+      ,[Ship-toparty]
+	  ,CreatedOnDate
+      ,[Corrqty]
+	  ,sum([Corrqty])over() as 'totalCorrqty'
+      ,[ConfirmedQty]
+	  ,sum([ConfirmedQty])over() as 'totalConfirmedQTY'
+
+FROM [DataLake].[AFS].[SalesOrder]
+where SalesDocument in (@slsorder)
+
+SELECT 
+       Referencedoc as 'SalesOrder'
+	  ,[SalesDocument] as 'DeliveryOrder'
+	  ,Deliveryqty
+	  ,sum([Deliveryqty]) over() as 'TotalDELqty'
+	  ,ActualGIdate
+  FROM [DataLake].[AFS].[DeliveryItem]
+  where Referencedoc in (@slsorder)
+```
+### Checking_SLS_Replen_Days
+
+```
+with replen as (
+SELECT [Store]
+      ,[Style]
+      ,[Colour]
+      ,[Length]
+      ,[Size]
+      ,[Calday]
+	  
+   --   ,[NREC]
+   --   ,[NSLS]
+   --   ,[EOH]
+   --   ,[Initial]
+      ,[Replenish]
+     
+  FROM [DataLake].[Dist].[Movement]
+  Where Store in ('1144') and Calday > '2023-01-01' and Replenish > 0-- and Style in ('013EE2K326') and Colour in ('044') and Size in ('M') 
+
+),
+
+loc as (
+SELECT [Store]
+      ,[StoreName]
+	  ,[Country]
+      ,[SalesOrganization]
+      ,[DistributionChannel]
+FROM [DataLake].[Retail].[Store]
+),
+
+cal as (
+SELECT [Date]
+      ,[ISODate]
+      ,[Year]
+      ,[Month]
+      ,[AddMonthName]
+      ,[DayOfWeek]
+      ,[DayOfWeekName]
+      ,[WeekNumber]
+  FROM [DataLake].[master].[Calendar]
+  where year = '2023'
+),
+
+sty as (
+SELECT [Style]
+      ,[BrandText]
+      ,[BrandTextShort]
+      ,[DivisionSet]
+    --  ,[DivisionSetText]
+    --  ,[GenderDescription]
+      ,[MaterialGroup]
+	--  ,max([CostPriceEUR])
+   
+  FROM [Reporting].[MasterDataViews].[ProductStyle]
+  group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
+)
+
+
+SELECT nsl.[Store]
+      ,nsl.[Style]
+      ,nsl.[Colour]
+	  ,nsl.[Size]
+      ,nsl.[Length]
+      ,nsl.[Calday] as NSLS_Date
+      ,nsl.[NSLS]
+	  ,nsl.EOH
+	  ,replen.Calday as Replen_Date
+	  ,replen.Replenish
+	  ,DATEDIFF(day,nsl.[Calday],replen.Calday) as 'Days-Between'
+      ,ROW_NUMBER() Over (Partition by Concat(nsl.[Store],nsl.[Style],nsl.[Colour],nsl.[Size],nsl.[Length],nsl.[Calday]) order by nsl.[Calday]) as 'Rank1'
+--	  ,ROW_NUMBER() Over (Partition by Concat(nsl.[Store],nsl.[Style],nsl.[Colour],nsl.[Size],nsl.[Length],nsl.[Calday]) order by replen.Calday ) as 'Rank2' -- some problems here
+
+	  ,loc.[Country]
+	  ,[DayOfWeekName] as 'Replen_Day'
+
+	  ,[MaterialGroup]
+	
+      
+  FROM [DataLake].[Dist].[Movement] as nsl
+
+  left join replen on 
+      nsl.Store = replen.Store 
+  and nsl.Style = replen.Style
+  and nsl.Colour = replen.Colour
+  and nsl.Size = replen.Size
+  and nsl.Length = replen.Length
+  and replen.Calday > nsl.Calday
+
+  left join loc on nsl.Store = loc.Store
+  left join cal on replen.Calday = cal.Date
+  left join sty on nsl.Style = sty.Style
+     
+  Where  nsl.Calday >= '2023-01-01' and nsl.NSLS > 0 and nsl.EOH <= 0  and nsl.Store in ('1144')  and nsl.Colour in ('285')  and nsl.Style in ('013EE1B327') 
+
+```
+
+### DC_Location_By_Date
+### Declare_Date
+### Find_Columns_Tables
+### IRP_Order_QTY
+### Join_itsself
+### Next_Arrive_Replen_Del
+### Option_MKD_FP
+### Option_Price
+### Option_Price_Retail
+### Sales_Order_by_Week_Country
+### Sales_order_process_days
+### Sales_order_to_DEL
+### Sales_Pcs_By_Store
+### Set_Week_Year
+
