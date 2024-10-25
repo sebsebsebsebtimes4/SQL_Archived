@@ -64,7 +64,62 @@ where
 concat(right(m.[IRP CalYMth],4),'-',left(m.[IRP CalYMth],2)) >= @StartIRP and [Style Key] = '010EE2I306'
 ```
 
-### Check_Item_Sales_Order
+### Check_NSLS_EOH_Replen_days
+
+```
+with nsls as
+(
+SELECT 
+    --  [Style]
+    -- ,[Colour]
+    -- ,[Length]
+    -- ,[Size]
+    CONCAT([Style],[Colour],[Size],[Length]) as Article
+      ,[Calday]
+      ,[NSLS]
+      ,[EOH]
+      ,[Replenish]
+    
+  FROM [DataLake].[Dist].[Movement]
+  Where Store in ('1144') and EOH <= 0  and Calday > '2023-01-01' -- and NSLS >0
+),
+
+replen as
+(
+SELECT 
+ 
+	  CONCAT([Style],[Colour],[Size],[Length]) as 'RE-Article'
+      ,[Calday]
+      ,[NSLS]
+      
+      ,[Replenish]
+	  ,[EOH]
+    
+  FROM [DataLake].[Dist].[Movement]
+  Where Store in ('1144')  and Calday > '2023-01-01' and Replenish >0  and CONCAT([Style],[Colour],[Size],[Length]) in ('881LA1319961239-42')
+)
+
+Select * 
+,(
+  select TOP(1) 
+         replen.Calday 
+		 from replen
+         where replen.[RE-Article] = nsls.Article and
+               replen.Calday > nsls.Calday
+		 order by replen.Calday Asc
+) as Replen_Date
+  ,DATEDIFF(day,[Calday],(
+  select TOP(1) 
+         replen.Calday 
+	 from replen
+         where replen.[RE-Article] = nsls.Article and
+               replen.Calday > nsls.Calday
+	 order by replen.Calday Asc
+  )) as 'Days to Receive'
+
+from nsls
+where Article in ('881LA1319961239-42') order by Calday
+```
 ### Check_Orders_2_Screens
 ###
 ###
