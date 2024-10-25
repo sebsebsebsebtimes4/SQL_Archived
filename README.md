@@ -243,12 +243,169 @@ SELECT nsl.[Store]
 
 ```
 
-### DC_Location_By_Date
+### DC_LocationEOH_By_Date
+```
+with calen as (
+SELECT [CalDay]
+      ,[DayName]
+      ,[Year]
+      ,[WeekOfYearName]
+ FROM [Reporting].[RetailViews].[Calendar]
+ where [DayName] in ('Sunday') and [Year]>'2022'
+ 
+)
+
+SELECT [CalendarDay]
+      ,[DayName]
+	  ,[WeekOfYearName]
+      ,[Material]
+      ,[Color]
+   
+      ,[Plant]
+	  ,case 
+	  when Plant = 'DE01' then 'FIEGE IBBENBUREN'
+	  when Plant = 'DE02' then 'RETURNS'
+	  when Plant = 'DE04' then 'RETURNS'
+	  when Plant = 'DE05' then 'SWISS RETURNS'
+	  when Plant = 'DE08' then 'DC EUROPE'
+	  when Plant = 'DE11' then 'DC DC OSNABBRUCK'
+	  when Plant = 'DE15' then 'DC DC OSNABBRUCK'
+	  when Plant = 'DE99' then 'CORSINA'
+	  when Plant = 'US08' then 'DC US'
+	  else 'UNKNOWN'
+	  end as 'Plant_Name'
+    
+      ,[StorageLocation]
+	  ,case 
+	  when [StorageLocation] = '1000' then 'DCE Warehouse'
+	  when [StorageLocation] = '1001' then 'DCE QC'
+	  when [StorageLocation] = '2000' then 'DCE IBB Wareh'
+	  when [StorageLocation] = '2001' then 'DCE IBB QC Area'
+	  when [StorageLocation] = '4000' then 'DCE Outlet'
+	  else 'UNKNOWN'
+	  end as 'Location_Name'
+	  ,[Quantity]
+      
+     
+  FROM [Reporting].[SupplyChainViews].[MD04withHistory] as main
+  left join calen on main.CalendarDay = calen.CalDay
+
+  Where [DayName] is not NULL and CalendarDay > GETDATE()-60
+```
 ### Declare_Date
+```
+DECLARE @MostRecentMonday as datetime = DATEDIFF(day,
+                                                   0, 
+												 GETDATE() - DATEDIFF(day, 0, GETDATE()) %7
+												 ) 
+DECLARE @MostRecentMonday1 as varchar(10) = convert(date, @MostRecentMonday)
+
+PRINT @MostRecentMonday1
+
+
+--Calculating Previous Sunday
+
+--DECLARE @CurrentWeekday INT = DATEPART(WEEKDAY, GETDATE())
+
+--DECLARE @LastSunday DATETIME = DATEADD(day, -1 *(( @CurrentWeekday % 7) - 1), GETDATE())
+
+--PRINT @LastSunday
+
+select GETDATE() - DATEDIFF(day, 0, GETDATE())%7
+
+```
+
 ### Find_Columns_Tables
+```
+SELECT      c.name  AS 'ColumnName'
+            ,t.name AS 'TableName'
+FROM        sys.columns c
+JOIN        sys.tables  t   ON c.object_id = t.object_id
+WHERE       c.name LIKE '%EES%'
+ORDER BY    TableName
+            ,ColumnName;
+```
+
 ### IRP_Order_QTY
+```
+SELECT 
+	   CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)) as InitialRequirementPeriod
+      ,[DivisionSet]
+      ,[ProductClass (nc)]
+	  ,a.[Style]
+	  ,plant
+	  ,sum([PUR(PCS)]) as 'PUR(PCS)'
+	  ,sum([PUR(PCS)AB]) as 'PUR(PCS)AB'
+      ,sum([REC(PCS)]) as 'REC(PCS)'
+     
+  
+     
+  FROM [Reporting].[SupplyChainViews].[PurchasingOrderConfirmationShipment] as a
+  left join [Reporting].[MasterDataViews].[ProductStyle] as b
+  on a.Style = b.Style 
+  where [InitialRequirementPeriod] in (202112,202201,202202,202203)
+  group by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)),[DivisionSet],[ProductClass (nc)],a.[Style],plant
+  order by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2))
+
+```
+
 ### Join_itsself
+
+```
+--select Store
+     
+--FROM [DataLake].[Dist].[Movement] AS E
+
+--inner join 
+--(
+--Select Store 
+--,MAX([Calday]) as maxx
+--from [DataLake].[Dist].[Movement]
+--Group by Store) AS M
+
+--on E.Store = M.Store
+--And E.Calday = M.maxx
+
+--Where E.Store = '1244'
+
+
+
+
+
+
+
+
+select *
+
+FROM [DataLake].[Dist].[Movement] AS E
+
+inner join 
+(
+Select Store
+,MAX([Calday]) as maxx
+from [DataLake].[Dist].[Movement]
+Group by Store) AS M
+
+on E.Store = M.Store
+And E.Calday = M.maxx
+
+
+--SELECT v.*
+--FROM views AS v
+--  JOIN
+--    ( SELECT userid, MIN(id) AS entryid
+--      FROM views
+--      GROUP BY userid
+--    ) AS vm
+--    ON  vm.userid = v.userid 
+--    AND vm.entryid = v.id ;
+
+```
 ### Next_Arrive_Replen_Del
+
+```
+
+```
 ### Option_MKD_FP
 ### Option_Price
 ### Option_Price_Retail
