@@ -404,14 +404,607 @@ And E.Calday = M.maxx
 ### Next_Arrive_Replen_Del
 
 ```
+with loc as (
+SELECT [Store]
+  --    ,[StoreName]
+	  ,[Country]
+  --    ,[SalesOrganization]
+      ,[DistributionChannel]
+FROM [DataLake].[Retail].[Store]
+),
+
+del as (
+SELECT  
+        RIGHT([Ship-toparty],4) as 'Ship-To-Store' 
+       ,[Material]
+	   ,[Custmaterial]
+	   ,[EANUPC]
+       ,[Referencedoc] as SalesDocumentID
+	   ,[Createdon]
+       ,[SalesDocument] as 'DeliveryDocumentID'
+	   ,[ActualGIdate]
+       ,[DeliveryType]
+    -- ,[DeliveryDate]
+       ,[Route]
+       ,[SalesOrg]
+    -- ,[ShippingPoint]
+    -- ,[CredContrArea]
+    -- ,[Route2]
+    -- ,[Changedon]
+       ,[Deliveryqty]
+	   ,[ShippingPoint]
+
+FROM [DataLake].[AFS].[DeliveryItem] 
+where left (Material, 3) in ('053') and Deliveryqty > 0 and left(Createdon,4) in ('2023')
+),
+
+sty as (
+SELECT [Style]
+    --  ,[BrandText]
+    --  ,[BrandTextShort]
+      ,[DivisionSet]
+    --  ,[DivisionSetText]
+    --  ,[GenderDescription]
+      ,[MaterialGroup]
+	--  ,max([CostPriceEUR])
+   
+  FROM [Reporting].[MasterDataViews].[ProductStyle]
+  group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
+),
+replen as (
+
+SELECT [Store]
+      ,Concat([Style],[Colour],[Size],[Length]) as 'Article'
+      ,[Calday]
+      ,[Replenish]
+  FROM [DataLake].[Dist].[Movement]
+  where Replenish >0 and LEFT(Style,3) in ('053') and left (Calday,4) in ('2023')
+)
+
+
+Select * ,
+     DATEDIFF(day, Createdon,ActualGIdate) as 'DC Process Days',
+	 (select TOP(1) 
+         replen.Calday 
+		 from replen
+         where replen.Article = del.Custmaterial and
+		       replen.Store = del.[Ship-To-Store] and
+               replen.Calday > del.ActualGIdate
+		 order by replen.Calday Asc
+      ) as Replen_Date
+
+
+from del
+left join loc on loc.Store = del.[Ship-To-Store]
+
+left join sty on sty.Style = del.Material
+
+
+
+where Country in ('NL','FR','AT','DE') and DistributionChannel in ('30') and ShippingPoint in ('1801') and Custmaterial <>''
+order by [Ship-To-Store], Createdon
 
 ```
 ### Option_MKD_FP
-### Option_Price
-### Option_Price_Retail
-### Sales_Order_by_Week_Country
-### Sales_order_process_days
-### Sales_order_to_DEL
-### Sales_Pcs_By_Store
-### Set_Week_Year
+```
+SELECT 
+       [Style] + [Colour] + [Length] as Opt,
+       [EOH],
+	
+       CASE 
+         WHEN mkd.ctp <> mkd.upr THEN 'HMK' 
+         ELSE 'FP' 
+       END         AS MKD_Flag
+	    
+  FROM [DataLake].[Dist].[EOH_LastSunday] as E
+  left join(
+  
+             SELECT DISTINCT [style] + [colour] + [Length]  AS Opt, 
+                             [country], 
+                             [validfrom], 
+                             [validto], 
+                             [pri_upr_inclvat_bc] AS UPR, 
+                             [pri_ctp_inclvat_bc] AS CTP 
+                              
+             FROM   [DataLake].[BI].[OWL_Prices_Retail] as BI 
+             
+			 inner join dist.Calendar as C
+			  ON c.calday >= BI.[validfrom] 
+                  AND c.calday < BI.[validto]
+		 
+			 WHERE  [country] = 'DE'AND [distributionchannel] = '30' and c.CalDay = '2020-07-12' )
+			 as mkd 
+   
+   on E.Style+E.Colour+E.Length = mkd.Opt
 
+  
+Where Store in ('1898','1827','1191','1818','1008',
+'1147','1815','1088','1802','1043','1846','1144',
+'1143','1364','1876','1830','1813','1844','1851',
+'1368','1190','1001','1805','1197','1198','1042',
+'1881','1071','1868','1011','1176','1183','1067',
+'1366','1182','1161','1048','1068') and EOH>0 and [Style] + [Colour] + [Length] like '997CC1K816%'
+
+
+```
+
+
+### Option_Price
+
+```
+SELECT DISTINCT(P.[Style])
+       ,(P.[Style]+p.[Colour]) as 'Option'
+	 
+      ,max([ValidFrom]) as ValidFrom
+      ,Max([ValidTo]) as ValidTo
+      ,Max([PRI_UPR_InclVAT_BC]) as UPR
+      ,Min([PRI_CTP_InclVAT_BC]) as CTP
+      ,min([PRI_LLC_InclVAT_BC]) as LLC
+	  ,min(S.ProductCluster) as ProductCluster
+	  ,min(ProductClusterText) as ProductClusterText
+	  
+	  ,min(m.[ProductClass]) as ProductClass
+	  ,min(left(P.[Style],2)) as SSN
+	  
+  FROM [DataLake].[BI].[OWL_Prices_Retail] as P
+
+  inner join [DataLake].[Dist].[Calendar] as D
+  ON D.calday >= P.[validfrom] 
+  AND D.calday < P.[validto] 
+
+  left join [DataLake].[BI].[Style] as S
+  on P.Style = S.Style
+
+  left join [DataLake].[BI].[ProductClusters] as C
+  on S.ProductCluster = C.ProductCluster
+
+  left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
+  on P.[Style]+P.[Colour] = w.[Option]
+
+  left join [DataLake].[master].[style] as M
+  on P.[Style] = M.Style
+
+
+  Where Country = 'DE' and D.CalDay = '2020-11-23' and left(P.[Style],2) = '99'
+  group by P.Style,P.[Style]+p.[Colour]
+  order by P.Style,P.[Style]+p.[Colour]
+
+
+```
+
+
+### Option_Price_Retail
+
+```
+SELECT 
+       p.Style
+      ,max([ValidFrom]) as ValidFrom
+      ,Max([ValidTo]) as ValidTo
+      ,min([PRI_UPR_InclVAT_BC]) as RetailUPR
+      ,Min([PRI_CTP_InclVAT_BC]) as RetailCTP
+   --   ,Min(p.[PRI_UPR_InclVAT_BC]) as EcomUPR
+	  --,Min(p.[PRI_CTP_InclVAT_BC]) as EcomCTP
+	  ,min([PRI_LLC_InclVAT_BC]) as LLC
+      ,min(S.ProductCluster) as ProductCluster
+      ,min(ProductClusterText) as ProductClusterText
+      ,min(m.[ProductClass]) as ProductClass
+      ,min([Season Start]) as SSN
+  FROM [DataLake].[BI].[OWL_Prices_Retail] as P
+  inner join [DataLake].[Dist].[Calendar] as D
+  ON D.calday >= P.[validfrom] 
+  AND D.calday < P.[validto] 
+  
+  left join [DataLake].[BI].[Style] as S
+  on P.Style = S.Style
+  
+  left join [DataLake].[BI].[ProductClusters] as C
+  on S.ProductCluster = C.ProductCluster
+  
+  left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
+  on P.[Style]+P.[Colour] = w.[Option]
+  
+  left join [DataLake].[master].[style] as M
+  on P.[Style] = M.Style
+
+  --left join
+  --(SELECT 
+  -- distinct(P.style)
+  -- ,min(p.[PRI_UPR_InclVAT_BC]) as EcomUPR
+  -- ,min(p.[PRI_CTP_InclVAT_BC]) as EcomCTP
+  -- from [DataLake].[BI].[OWL_Prices_ecom] as P
+  -- inner join [DataLake].[Dist].[Calendar] as D
+  -- ON D.calday >= P.[validfrom] 
+  -- AND D.calday < P.[validto] 
+
+  -- Where Country ='DE' and D.calday ='2020-10-07'
+  -- group by P.Style)
+  -- as E
+  -- on P.Style = E.Style 
+  
+  
+  Where Country = 'DE' and D.CalDay = '2020-10-07'
+  group by P.[Style]
+
+```
+
+
+### Sales_Order_by_Week_Country
+```
+with main as (
+select 
+        [SalesDocument]
+	   ,[CreatedOnDate]
+	   ,[DocumentDate]
+	   ,[Ship-toparty]
+	   ,right([Ship-toparty],4) as 'Store'
+      ,[MaterialGroup]
+      ,[Material]
+      ,[Color]
+      ,CONCAT([Material],Color) as 'SOption'
+      ,[Corrqty]
+	  ,[ConfirmedQty]
+      ,[DeliveryDate]
+      ,[RejectionReason]
+      ,[Size]
+      ,[Size1]
+      ,[Size2]
+      ,[EANUPC]
+      ,[SalesDocType]
+      ,[SalesOrg]
+      ,[DistrChannel]
+      ,[EAN11]
+      ,[ShippingPoint]
+      ,[Plant]
+  FROM [DataLake].[AFS].[SalesOrder]
+  where DocumentDate between '2023-11-27' and '2023-12-03' and Corrqty > 0
+  ),
+
+  loc as (
+  SELECT [Store]
+      ,[StoreName]
+	  ,[Country]
+      ,[SalesOrganization]
+      ,[DistributionChannel]
+	  ,Region
+	  ,RegionText
+	  ,CASE
+    WHEN DistributionChannel = 30 THEN 'Retail'
+	WHEN DistributionChannel = 31 THEN 'Ecom'
+    ELSE 'Outlet'
+    END as 'Channel'
+FROM [DataLake].[Retail].[Store]
+),
+
+calen as (
+
+SELECT [CalDay]
+      ,[DayName]
+      ,[Year]
+      ,[IsoWeek]
+      ,[WeekOfYearName]
+ FROM [Reporting].[RetailViews].[Calendar]
+ ),
+
+ info as (
+ SELECT left(Article,13) as 'SOption'
+       ,[GenderDescription]
+	  ,MaterialGroup
+      ,[ProductClusterDescription]
+	  ,[NOOSEndSeason]
+  
+  FROM [Reporting].[MasterDataViews].[ProductArticle]
+  
+  group by left(Article,13),[GenderDescription],MaterialGroup,[ProductClusterDescription],[NOOSEndSeason]
+ 
+ )
+
+select *
+   
+from main 
+left join loc on main.Store = loc.Store
+left join calen on main.CreatedOnDate = calen.CalDay
+left join info on main.SOption = info.SOption
+
+where Channel in ('Retail','Ecom')
+
+```
+
+
+
+### Sales_order_process_days
+```
+with loc as (
+SELECT [Store]
+  --    ,[StoreName]
+	  ,[Country]
+  --    ,[SalesOrganization]
+      ,[DistributionChannel]
+FROM [DataLake].[Retail].[Store]
+),
+
+del as (
+SELECT  
+        RIGHT([Ship-toparty],4) as 'Ship-To-Store' 
+       ,[Material]
+	   ,[Custmaterial]
+	   ,[EANUPC]
+       ,[Referencedoc] as SalesDocumentID
+	   ,[Createdon]
+       ,[SalesDocument] as 'DeliveryDocumentID'
+	   ,[ActualGIdate]
+       ,[DeliveryType]
+    -- ,[DeliveryDate]
+       ,[Route]
+       ,[SalesOrg]
+    -- ,[ShippingPoint]
+    -- ,[CredContrArea]
+    -- ,[Route2]
+    -- ,[Changedon]
+       ,[Deliveryqty]
+	   ,[ShippingPoint]
+
+FROM [DataLake].[AFS].[DeliveryItem] 
+where left (Material, 3) in ('053') and Deliveryqty > 0 and left(Createdon,4) in ('2023')
+),
+
+sty as (
+SELECT [Style]
+    --  ,[BrandText]
+    --  ,[BrandTextShort]
+      ,[DivisionSet]
+    --  ,[DivisionSetText]
+    --  ,[GenderDescription]
+      ,[MaterialGroup]
+	--  ,max([CostPriceEUR])
+   
+  FROM [Reporting].[MasterDataViews].[ProductStyle]
+  group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
+),
+replen as (
+
+SELECT [Store]
+      ,Concat([Style],[Colour],[Size],[Length]) as 'Article'
+      ,[Calday]
+      ,[Replenish]
+  FROM [DataLake].[Dist].[Movement]
+  where Replenish >0 and LEFT(Style,3) in ('053') and left (Calday,4) in ('2023')
+)
+
+
+Select * ,
+     DATEDIFF(day, Createdon,ActualGIdate) as 'DC Process Days',
+	 (select TOP(1) 
+         replen.Calday 
+		 from replen
+         where replen.Article = del.Custmaterial and
+		       replen.Store = del.[Ship-To-Store] and
+               replen.Calday > del.ActualGIdate
+		 order by replen.Calday Asc
+      ) as Replen_Date
+
+
+from del
+left join loc on loc.Store = del.[Ship-To-Store]
+
+left join sty on sty.Style = del.Material
+
+
+
+where Country in ('NL','FR') and DistributionChannel in ('30') and ShippingPoint in ('1801') and Custmaterial <>''
+order by [Ship-To-Store], Createdon
+
+```
+### Sales_order_to_DEL
+```
+declare @TY as varchar(10)
+set @TY= DATEPART(YEAR,GETDATE())
+
+declare @wk1 as varchar(10)
+set @wk1= DATEPART(WEEK,GETDATE())-1
+
+declare @TY1 as varchar(10)
+set @TY1 = Concat(@wk1,'.',@TY);
+
+with main as (
+select 
+        [SalesDocument]
+	   ,[CreatedOnDate]
+	   ,[DocumentDate]
+	   ,[Ship-toparty]
+	   ,right([Ship-toparty],4) as 'Store'
+      ,[MaterialGroup]
+      ,[Material]
+      ,[Color]
+      ,CONCAT([Material],Color) as 'SOption'
+      ,[Corrqty] as 'Intend Allocation'
+	  ,[ConfirmedQty] as 'Final Confirmed Unit'
+      ,[DeliveryDate]
+      ,[RejectionReason]
+      ,[Size]
+      ,[Size1]
+      ,[Size2]
+      ,[EANUPC]
+      ,[SalesDocType]
+      ,[SalesOrg]
+      ,[DistrChannel]
+      ,[EAN11]
+      ,[ShippingPoint]
+      ,[Plant]
+  FROM [DataLake].[AFS].[SalesOrder]
+  where DocumentDate between '2023-11-27' and getdate() and Corrqty > 0
+  ),
+
+  loc as (
+  SELECT [Store]
+      ,[StoreName]
+	  ,[Country]
+      ,[SalesOrganization]
+      ,[DistributionChannel]
+	  ,Region
+	  ,RegionText
+	  ,CASE
+    WHEN DistributionChannel = 30 THEN 'Retail'
+	WHEN DistributionChannel = 31 THEN 'Ecom'
+    ELSE 'Outlet'
+    END as 'Channel'
+FROM [DataLake].[Retail].[Store]
+),
+
+calen as (
+
+SELECT [CalDay]
+      ,[DayName]
+      ,[Year]
+      ,[IsoWeek]
+      ,[WeekOfYearName]
+ FROM [Reporting].[RetailViews].[Calendar]
+ ),
+
+ delivery as (
+ SELECT 
+       Referencedoc as 'SalesOrder'
+	  ,EANUPC 
+	  ,sum(Deliveryqty) as DeliveryQTY
+     
+  FROM [DataLake].[AFS].[DeliveryItem]
+  group by Referencedoc,EANUPC
+ 
+ ),
+
+ info as (
+ SELECT left(Article,13) as 'SOption'
+       ,[GenderDescription]
+	  ,MaterialGroup
+      ,[ProductClusterDescription]
+	  ,[NOOSEndSeason]
+          ,[SeasonYear]
+	  ,[SeasonCode]
+  
+  FROM [Reporting].[MasterDataViews].[ProductArticle]
+  
+  group by left(Article,13),[GenderDescription],MaterialGroup,[ProductClusterDescription],[NOOSEndSeason],[SeasonYear],[SeasonCode]
+
+ 
+ )
+
+select *
+   
+from main 
+left join loc on main.Store = loc.Store
+left join calen on main.CreatedOnDate = calen.CalDay
+left join info on main.SOption = info.SOption
+left join delivery on main.SalesDocument = delivery.SalesOrder and main.EANUPC = delivery.EANUPC
+
+where Channel in ('Retail','Ecom') and [WeekOfYearName] in (@TY1)
+```
+
+### Sales_Pcs_By_Store
+
+```
+SELECT 
+       
+	   [Store]
+	  
+	  ,datepart(week, CalendarDay) as 'Selling Week'
+      
+	  
+      ,sum([NSLS@PCS]) as NSLS@PCS
+      ,sum(ISNULL(UPR*NSLS@PCS, [NSLS@CTP iV BC])) as NSLS@UPRivBC
+      ,sum([NSLS@CTP iV BC]) as 'NSLS@CTP iV BC'
+	  ,sum([NSLS@ASP iV BC]) as 'NSLS@ASP iV BC'
+      ,sum([NSLS@LLC BC]) as 'NSLS@LLC BC'
+	  ,sum(ISNULL(UPR*NSLS@PCS, [NSLS@CTP iV BC]) - [NSLS@CTP iV BC]) as 'MD Value'
+	  ,sum([NSLS@CTP iV BC] - [NSLS@ASP iV BC]) as 'Promo Value'
+	  ,sum(ISNULL(UPR*NSLS@PCS, [NSLS@CTP iV BC]) - [NSLS@ASP iV BC]) as 'Discount Value'
+
+	,CASE
+    WHEN ProductClusterText in ('Blouses','Shirts') THEN 'Blouse_Shirt'
+    WHEN ProductClusterText in ('Dresses','Overalls','Skirts') THEN 'Dress'
+	WHEN ProductClusterText in ('Jackets Indoor/Blazer') THEN 'Indoor'
+	WHEN ProductClusterText in ('Coats','Jackets Outdoor','Leather') THEN 'Outerwear'
+    WHEN ProductClusterText in ('Pants Denim','Pants Knitted','Pants Woven') THEN 'Pant'
+	WHEN ProductClusterText in ('Shorts') THEN 'Short'
+	WHEN ProductClusterText in ('Suiting') THEN 'Suit'
+   	WHEN ProductClusterText in ('Sweaters','Sweatshirts') THEN 'Sweater'
+	WHEN ProductClusterText in ('Poloshirts','T-Shirts') THEN 'T'
+    ELSE 'Lifestyle' 
+	END AS 'Cluster'
+	 
+  FROM [DataLake].[StoreApp].[BonPosition] as M
+  left join (SELECT [Style] 
+       ,Max([PRI_UPR_InclVAT_BC]) as UPR
+       FROM [DataLake].[BI].[OWL_Prices_Retail]
+       Where Country = 'DE'
+       Group by Style ) as U
+  on M.Style = U.Style
+
+  left join [DataLake].[BI].[Style] as S
+  on M.Style = S.Style
+
+  left join [DataLake].[BI].[ProductClusters] as C
+  on S.ProductCluster = C.ProductCluster
+
+  
+  Where Store in ('1001','1008','1042','1043','1048','1067','1071','1088','1143','1144','1147','1161','1176','1183','1190','1191','1198','1364','1366','1802','1813','1815','1818','1827','1830','1846','1851','1868','1876','1881','1898') and CalendarDay between '2020-07-20' and '2020-11-22'
+ group by Store,datepart(week, CalendarDay),
+    CASE
+    WHEN ProductClusterText in ('Blouses','Shirts') THEN 'Blouse_Shirt'
+    WHEN ProductClusterText in ('Dresses','Overalls','Skirts') THEN 'Dress'
+	WHEN ProductClusterText in ('Jackets Indoor/Blazer') THEN 'Indoor'
+	WHEN ProductClusterText in ('Coats','Jackets Outdoor','Leather') THEN 'Outerwear'
+    WHEN ProductClusterText in ('Pants Denim','Pants Knitted','Pants Woven') THEN 'Pant'
+	WHEN ProductClusterText in ('Shorts') THEN 'Short'
+	WHEN ProductClusterText in ('Suiting') THEN 'Suit'
+   	WHEN ProductClusterText in ('Sweaters','Sweatshirts') THEN 'Sweater'
+	WHEN ProductClusterText in ('Poloshirts','T-Shirts') THEN 'T'
+    ELSE 'Lifestyle' end
+   
+```
+
+### Set_Week_Year
+```
+declare @TY as varchar(10)
+declare @LY as varchar(10)
+declare @wk1 as varchar(10)
+declare @wk2 as varchar(10)
+declare @wk3 as varchar(10)
+declare @wk4 as varchar(10)
+
+declare @TY1 as varchar(10)
+declare @TY2 as varchar(10)
+declare @TY3 as varchar(10)
+declare @TY4 as varchar(10)
+
+declare @LY1 as varchar(10)
+declare @LY2 as varchar(10)
+declare @LY3 as varchar(10)
+declare @LY4 as varchar(10)
+
+
+set @TY= DATEPART(YEAR,GETDATE())
+set @LY= DATEPART(YEAR,GETDATE())-1
+set @wk1= DATEPART(WEEK,GETDATE())-1
+set @wk2= DATEPART(WEEK,GETDATE())-2
+set @wk3= DATEPART(WEEK,GETDATE())-3
+set @wk4= DATEPART(WEEK,GETDATE())-4
+
+set @TY1 = Concat(@wk1,'.',@TY)
+set @TY2 = Concat(@wk2,'.',@TY)
+set @TY3 = Concat(@wk3,'.',@TY)
+set @TY4 = Concat(@wk4,'.',@TY)
+
+set @LY1 = Concat(@wk1,'.',@LY)
+set @LY2 = Concat(@wk2,'.',@LY)
+set @LY3 = Concat(@wk3,'.',@LY)
+set @LY4 = Concat(@wk4,'.',@LY)
+
+select @TY1,
+       @TY2,
+	   @TY3,
+	   @TY4,
+	   @LY1,
+       @LY2,
+	   @LY3,
+	   @LY4
+
+```
