@@ -128,23 +128,23 @@ set @slsorder='0133729706'
 
 SELECT [SalesDocument] as 'SalesOrder'
       ,[Ship-toparty]
-	  ,CreatedOnDate
+      ,CreatedOnDate
       ,[Corrqty]
-	  ,sum([Corrqty])over() as 'totalCorrqty'
+      ,sum([Corrqty])over() as 'totalCorrqty'
       ,[ConfirmedQty]
-	  ,sum([ConfirmedQty])over() as 'totalConfirmedQTY'
+     ,sum([ConfirmedQty])over() as 'totalConfirmedQTY'
 
 FROM [DataLake].[AFS].[SalesOrder]
 where SalesDocument in (@slsorder)
 
 SELECT 
        Referencedoc as 'SalesOrder'
-	  ,[SalesDocument] as 'DeliveryOrder'
-	  ,Deliveryqty
-	  ,sum([Deliveryqty]) over() as 'TotalDELqty'
-	  ,ActualGIdate
-  FROM [DataLake].[AFS].[DeliveryItem]
-  where Referencedoc in (@slsorder)
+      ,[SalesDocument] as 'DeliveryOrder'
+      ,Deliveryqty
+      ,sum([Deliveryqty]) over() as 'TotalDELqty'
+      ,ActualGIdate
+FROM [DataLake].[AFS].[DeliveryItem]
+where Referencedoc in (@slsorder)
 ```
 ### Checking_SLS_Replen_Days
 
@@ -157,21 +157,19 @@ SELECT [Store]
       ,[Size]
       ,[Calday]
 	  
-   --   ,[NREC]
-   --   ,[NSLS]
-   --   ,[EOH]
-   --   ,[Initial]
+    --,[NREC]
+    --,[NSLS]
+    --,[EOH]
+    --,[Initial]
       ,[Replenish]
-     
-  FROM [DataLake].[Dist].[Movement]
-  Where Store in ('1144') and Calday > '2023-01-01' and Replenish > 0-- and Style in ('013EE2K326') and Colour in ('044') and Size in ('M') 
-
+FROM [DataLake].[Dist].[Movement]
+Where Store in ('1144') and Calday > '2023-01-01' and Replenish > 0-- and Style in ('013EE2K326') and Colour in ('044') and Size in ('M') 
 ),
 
 loc as (
 SELECT [Store]
       ,[StoreName]
-	  ,[Country]
+      ,[Country]
       ,[SalesOrganization]
       ,[DistributionChannel]
 FROM [DataLake].[Retail].[Store]
@@ -186,8 +184,8 @@ SELECT [Date]
       ,[DayOfWeek]
       ,[DayOfWeekName]
       ,[WeekNumber]
-  FROM [DataLake].[master].[Calendar]
-  where year = '2023'
+FROM [DataLake].[master].[Calendar]
+where year = '2023'
 ),
 
 sty as (
@@ -195,39 +193,36 @@ SELECT [Style]
       ,[BrandText]
       ,[BrandTextShort]
       ,[DivisionSet]
-    --  ,[DivisionSetText]
-    --  ,[GenderDescription]
+    --,[DivisionSetText]
+    --,[GenderDescription]
       ,[MaterialGroup]
-	--  ,max([CostPriceEUR])
-   
-  FROM [Reporting].[MasterDataViews].[ProductStyle]
-  group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
+    --,max([CostPriceEUR])
+
+FROM [Reporting].[MasterDataViews].[ProductStyle]
+group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
 )
 
 
 SELECT nsl.[Store]
       ,nsl.[Style]
       ,nsl.[Colour]
-	  ,nsl.[Size]
+      ,nsl.[Size]
       ,nsl.[Length]
       ,nsl.[Calday] as NSLS_Date
       ,nsl.[NSLS]
-	  ,nsl.EOH
-	  ,replen.Calday as Replen_Date
-	  ,replen.Replenish
-	  ,DATEDIFF(day,nsl.[Calday],replen.Calday) as 'Days-Between'
+      ,nsl.EOH
+      ,replen.Calday as Replen_Date
+      ,replen.Replenish
+      ,DATEDIFF(day,nsl.[Calday],replen.Calday) as 'Days-Between'
       ,ROW_NUMBER() Over (Partition by Concat(nsl.[Store],nsl.[Style],nsl.[Colour],nsl.[Size],nsl.[Length],nsl.[Calday]) order by nsl.[Calday]) as 'Rank1'
---	  ,ROW_NUMBER() Over (Partition by Concat(nsl.[Store],nsl.[Style],nsl.[Colour],nsl.[Size],nsl.[Length],nsl.[Calday]) order by replen.Calday ) as 'Rank2' -- some problems here
+    --,ROW_NUMBER() Over (Partition by Concat(nsl.[Store],nsl.[Style],nsl.[Colour],nsl.[Size],nsl.[Length],nsl.[Calday]) order by replen.Calday ) as 'Rank2' -- some problems here
+      ,loc.[Country]
+      ,[DayOfWeekName] as 'Replen_Day'
+      ,[MaterialGroup]
+   
+FROM [DataLake].[Dist].[Movement] as nsl
 
-	  ,loc.[Country]
-	  ,[DayOfWeekName] as 'Replen_Day'
-
-	  ,[MaterialGroup]
-	
-      
-  FROM [DataLake].[Dist].[Movement] as nsl
-
-  left join replen on 
+left join replen on 
       nsl.Store = replen.Store 
   and nsl.Style = replen.Style
   and nsl.Colour = replen.Colour
@@ -238,8 +233,8 @@ SELECT nsl.[Store]
   left join loc on nsl.Store = loc.Store
   left join cal on replen.Calday = cal.Date
   left join sty on nsl.Style = sty.Style
-     
-  Where  nsl.Calday >= '2023-01-01' and nsl.NSLS > 0 and nsl.EOH <= 0  and nsl.Store in ('1144')  and nsl.Colour in ('285')  and nsl.Style in ('013EE1B327') 
+
+Where  nsl.Calday >= '2023-01-01' and nsl.NSLS > 0 and nsl.EOH <= 0  and nsl.Store in ('1144')  and nsl.Colour in ('285')  and nsl.Style in ('013EE1B327') 
 
 ```
 
@@ -250,22 +245,21 @@ SELECT [CalDay]
       ,[DayName]
       ,[Year]
       ,[WeekOfYearName]
- FROM [Reporting].[RetailViews].[Calendar]
- where [DayName] in ('Sunday') and [Year]>'2022'
- 
+
+FROM [Reporting].[RetailViews].[Calendar]
+where [DayName] in ('Sunday') and [Year]>'2022'
 )
 
 SELECT [CalendarDay]
       ,[DayName]
-	  ,[WeekOfYearName]
+      ,[WeekOfYearName]
       ,[Material]
       ,[Color]
-   
       ,[Plant]
-	  ,case 
-	  when Plant = 'DE01' then 'FIEGE IBBENBUREN'
-	  when Plant = 'DE02' then 'RETURNS'
-	  when Plant = 'DE04' then 'RETURNS'
+      ,case 
+      when Plant = 'DE01' then 'FIEGE IBBENBUREN'
+      when Plant = 'DE02' then 'RETURNS'
+      when Plant = 'DE04' then 'RETURNS'
 	  when Plant = 'DE05' then 'SWISS RETURNS'
 	  when Plant = 'DE08' then 'DC EUROPE'
 	  when Plant = 'DE11' then 'DC DC OSNABBRUCK'
