@@ -60,8 +60,7 @@ SELECT top(50000)
         ,[Rev Dt ZG (Cargo Receipt at Hub)] as 'Rev Dt ZG'
         ,[Act Dt ZG  (Cargo Receipt at Hub)] as 'Act Dt ZG'
 FROM [BSMD_Data].[Rep].[BSMD_AllData] as m
-where 
-concat(right(m.[IRP CalYMth],4),'-',left(m.[IRP CalYMth],2)) >= @StartIRP and [Style Key] = '010EE2I306'
+where concat(right(m.[IRP CalYMth],4),'-',left(m.[IRP CalYMth],2)) >= @StartIRP and [Style Key] = '010EE2I306'
 ```
 
 ### Check_NSLS_EOH_Replen_days
@@ -80,45 +79,46 @@ SELECT
       ,[EOH]
       ,[Replenish]
     
-  FROM [DataLake].[Dist].[Movement]
-  Where Store in ('1144') and EOH <= 0  and Calday > '2023-01-01' -- and NSLS >0
+FROM [DataLake].[Dist].[Movement]
+Where Store in ('1144') and EOH <= 0  and Calday > '2023-01-01' -- and NSLS >0
 ),
 
 replen as
 (
 SELECT 
- 
-	  CONCAT([Style],[Colour],[Size],[Length]) as 'RE-Article'
+      CONCAT([Style],[Colour],[Size],[Length]) as 'RE-Article'
       ,[Calday]
       ,[NSLS]
       
       ,[Replenish]
 	  ,[EOH]
     
-  FROM [DataLake].[Dist].[Movement]
-  Where Store in ('1144')  and Calday > '2023-01-01' and Replenish >0  and CONCAT([Style],[Colour],[Size],[Length]) in ('881LA1319961239-42')
+FROM [DataLake].[Dist].[Movement]
+Where Store in ('1144')  and Calday > '2023-01-01' and Replenish >0  and CONCAT([Style],[Colour],[Size],[Length]) in ('881LA1319961239-42')
 )
 
 Select * 
-,(
-  select TOP(1) 
-         replen.Calday 
-		 from replen
-         where replen.[RE-Article] = nsls.Article and
-               replen.Calday > nsls.Calday
-		 order by replen.Calday Asc
+,
+(
+select TOP(1) 
+       replen.Calday 
+from replen
+where replen.[RE-Article] = nsls.Article and replen.Calday > nsls.Calday
+order by replen.Calday Asc
+
 ) as Replen_Date
-  ,DATEDIFF(day,[Calday],(
-  select TOP(1) 
-         replen.Calday 
-	 from replen
-         where replen.[RE-Article] = nsls.Article and
-               replen.Calday > nsls.Calday
-	 order by replen.Calday Asc
-  )) as 'Days to Receive'
+,DATEDIFF(day,[Calday]
+,(
+select TOP(1) 
+       replen.Calday 
+from replen
+where replen.[RE-Article] = nsls.Article and replen.Calday > nsls.Calday
+order by replen.Calday Asc
+)) as 'Days to Receive'
 
 from nsls
 where Article in ('881LA1319961239-42') order by Calday
+
 ```
 ### Check_Orders_2_Screens
 
@@ -132,7 +132,7 @@ SELECT [SalesDocument] as 'SalesOrder'
       ,[Corrqty]
       ,sum([Corrqty])over() as 'totalCorrqty'
       ,[ConfirmedQty]
-     ,sum([ConfirmedQty])over() as 'totalConfirmedQTY'
+      ,sum([ConfirmedQty])over() as 'totalConfirmedQTY'
 
 FROM [DataLake].[AFS].[SalesOrder]
 where SalesDocument in (@slsorder)
@@ -145,9 +145,10 @@ SELECT
       ,ActualGIdate
 FROM [DataLake].[AFS].[DeliveryItem]
 where Referencedoc in (@slsorder)
-```
-### Checking_SLS_Replen_Days
 
+```
+
+### Checking_SLS_Replen_Days
 ```
 with replen as (
 SELECT [Store]
@@ -260,86 +261,77 @@ SELECT [CalendarDay]
       when Plant = 'DE01' then 'FIEGE IBBENBUREN'
       when Plant = 'DE02' then 'RETURNS'
       when Plant = 'DE04' then 'RETURNS'
-	  when Plant = 'DE05' then 'SWISS RETURNS'
-	  when Plant = 'DE08' then 'DC EUROPE'
-	  when Plant = 'DE11' then 'DC DC OSNABBRUCK'
-	  when Plant = 'DE15' then 'DC DC OSNABBRUCK'
-	  when Plant = 'DE99' then 'CORSINA'
-	  when Plant = 'US08' then 'DC US'
-	  else 'UNKNOWN'
-	  end as 'Plant_Name'
-    
+      when Plant = 'DE05' then 'SWISS RETURNS'
+      when Plant = 'DE08' then 'DC EUROPE'
+      when Plant = 'DE11' then 'DC DC OSNABBRUCK'
+      when Plant = 'DE15' then 'DC DC OSNABBRUCK'
+      when Plant = 'DE99' then 'CORSINA'
+      when Plant = 'US08' then 'DC US'
+      else 'UNKNOWN'
+      end as 'Plant_Name'
       ,[StorageLocation]
-	  ,case 
-	  when [StorageLocation] = '1000' then 'DCE Warehouse'
-	  when [StorageLocation] = '1001' then 'DCE QC'
-	  when [StorageLocation] = '2000' then 'DCE IBB Wareh'
-	  when [StorageLocation] = '2001' then 'DCE IBB QC Area'
-	  when [StorageLocation] = '4000' then 'DCE Outlet'
-	  else 'UNKNOWN'
-	  end as 'Location_Name'
-	  ,[Quantity]
-      
-     
-  FROM [Reporting].[SupplyChainViews].[MD04withHistory] as main
-  left join calen on main.CalendarDay = calen.CalDay
+      ,case 
+      when [StorageLocation] = '1000' then 'DCE Warehouse'
+      when [StorageLocation] = '1001' then 'DCE QC'
+      when [StorageLocation] = '2000' then 'DCE IBB Wareh'
+      when [StorageLocation] = '2001' then 'DCE IBB QC Area'
+      when [StorageLocation] = '4000' then 'DCE Outlet'
+      else 'UNKNOWN'
+      end as 'Location_Name'
+      ,[Quantity]
 
-  Where [DayName] is not NULL and CalendarDay > GETDATE()-60
+FROM [Reporting].[SupplyChainViews].[MD04withHistory] as main
+left join calen on main.CalendarDay = calen.CalDay
+Where [DayName] is not NULL and CalendarDay > GETDATE()-60
+
 ```
 ### Declare_Date
 ```
 DECLARE @MostRecentMonday as datetime = DATEDIFF(day,
-                                                   0, 
-												 GETDATE() - DATEDIFF(day, 0, GETDATE()) %7
-												 ) 
+                                                 0, 
+						 GETDATE() - DATEDIFF(day, 0, GETDATE()) %7
+)
+
 DECLARE @MostRecentMonday1 as varchar(10) = convert(date, @MostRecentMonday)
 
 PRINT @MostRecentMonday1
-
-
 --Calculating Previous Sunday
-
 --DECLARE @CurrentWeekday INT = DATEPART(WEEKDAY, GETDATE())
-
 --DECLARE @LastSunday DATETIME = DATEADD(day, -1 *(( @CurrentWeekday % 7) - 1), GETDATE())
-
 --PRINT @LastSunday
-
 select GETDATE() - DATEDIFF(day, 0, GETDATE())%7
 
 ```
 
 ### Find_Columns_Tables
 ```
-SELECT      c.name  AS 'ColumnName'
-            ,t.name AS 'TableName'
-FROM        sys.columns c
-JOIN        sys.tables  t   ON c.object_id = t.object_id
-WHERE       c.name LIKE '%EES%'
-ORDER BY    TableName
-            ,ColumnName;
+SELECT c.name  AS 'ColumnName'
+       ,t.name AS 'TableName'
+FROM sys.columns c
+JOIN sys.tables  t
+     ON c.object_id = t.object_id
+WHERE c.name LIKE '%EES%'
+ORDER BY TableName
+         ,ColumnName;
+
 ```
 
 ### IRP_Order_QTY
 ```
-SELECT 
-	   CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)) as InitialRequirementPeriod
-      ,[DivisionSet]
-      ,[ProductClass (nc)]
-	  ,a.[Style]
-	  ,plant
-	  ,sum([PUR(PCS)]) as 'PUR(PCS)'
-	  ,sum([PUR(PCS)AB]) as 'PUR(PCS)AB'
-      ,sum([REC(PCS)]) as 'REC(PCS)'
-     
-  
-     
-  FROM [Reporting].[SupplyChainViews].[PurchasingOrderConfirmationShipment] as a
-  left join [Reporting].[MasterDataViews].[ProductStyle] as b
-  on a.Style = b.Style 
-  where [InitialRequirementPeriod] in (202112,202201,202202,202203)
-  group by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)),[DivisionSet],[ProductClass (nc)],a.[Style],plant
-  order by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2))
+SELECT CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)) as InitialRequirementPeriod
+       ,[DivisionSet]
+       ,[ProductClass (nc)]
+       ,a.[Style]
+       ,plant
+       ,sum([PUR(PCS)]) as 'PUR(PCS)'
+       ,sum([PUR(PCS)AB]) as 'PUR(PCS)AB'
+       ,sum([REC(PCS)]) as 'REC(PCS)'
+FROM [Reporting].[SupplyChainViews].[PurchasingOrderConfirmationShipment] as a
+     left join [Reporting].[MasterDataViews].[ProductStyle] as b
+     on a.Style = b.Style 
+where [InitialRequirementPeriod] in (202112,202201,202202,202203)
+group by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2)),[DivisionSet],[ProductClass (nc)],a.[Style],plant
+order by CONCAT(LEFT([InitialRequirementPeriod],4),'-',right([InitialRequirementPeriod],2))
 
 ```
 
@@ -347,38 +339,27 @@ SELECT
 
 ```
 --select Store
-     
 --FROM [DataLake].[Dist].[Movement] AS E
-
 --inner join 
 --(
 --Select Store 
 --,MAX([Calday]) as maxx
 --from [DataLake].[Dist].[Movement]
 --Group by Store) AS M
-
 --on E.Store = M.Store
 --And E.Calday = M.maxx
-
 --Where E.Store = '1244'
-
-
-
-
-
-
-
 
 select *
 
 FROM [DataLake].[Dist].[Movement] AS E
-
 inner join 
 (
 Select Store
-,MAX([Calday]) as maxx
+       ,MAX([Calday]) as maxx
 from [DataLake].[Dist].[Movement]
-Group by Store) AS M
+Group by Store
+) AS M
 
 on E.Store = M.Store
 And E.Calday = M.maxx
@@ -400,9 +381,9 @@ And E.Calday = M.maxx
 ```
 with loc as (
 SELECT [Store]
-  --    ,[StoreName]
-	  ,[Country]
-  --    ,[SalesOrganization]
+    --,[StoreName]
+      ,[Country]
+    --,[SalesOrganization]
       ,[DistributionChannel]
 FROM [DataLake].[Retail].[Store]
 ),
