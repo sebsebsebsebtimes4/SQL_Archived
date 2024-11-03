@@ -386,15 +386,14 @@ FROM [DataLake].[Retail].[Store]
 ),
 
 del as (
-SELECT  
-        RIGHT([Ship-toparty],4) as 'Ship-To-Store' 
+SELECT  RIGHT([Ship-toparty],4) as 'Ship-To-Store' 
        ,[Material]
-	   ,[Custmaterial]
-	   ,[EANUPC]
+       ,[Custmaterial]
+       ,[EANUPC]
        ,[Referencedoc] as SalesDocumentID
-	   ,[Createdon]
+       ,[Createdon]
        ,[SalesDocument] as 'DeliveryDocumentID'
-	   ,[ActualGIdate]
+       ,[ActualGIdate]
        ,[DeliveryType]
     -- ,[DeliveryDate]
        ,[Route]
@@ -404,7 +403,7 @@ SELECT
     -- ,[Route2]
     -- ,[Changedon]
        ,[Deliveryqty]
-	   ,[ShippingPoint]
+       ,[ShippingPoint]
 
 FROM [DataLake].[AFS].[DeliveryItem] 
 where left (Material, 3) in ('053') and Deliveryqty > 0 and left(Createdon,4) in ('2023')
@@ -412,52 +411,52 @@ where left (Material, 3) in ('053') and Deliveryqty > 0 and left(Createdon,4) in
 
 sty as (
 SELECT [Style]
-    --  ,[BrandText]
-    --  ,[BrandTextShort]
+    --,[BrandText]
+    --,[BrandTextShort]
       ,[DivisionSet]
-    --  ,[DivisionSetText]
-    --  ,[GenderDescription]
+    --,[DivisionSetText]
+    --,[GenderDescription]
       ,[MaterialGroup]
-	--  ,max([CostPriceEUR])
+    --,max([CostPriceEUR])
    
-  FROM [Reporting].[MasterDataViews].[ProductStyle]
-  group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
+FROM [Reporting].[MasterDataViews].[ProductStyle]
+group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
 ),
-replen as (
 
+replen as (
 SELECT [Store]
       ,Concat([Style],[Colour],[Size],[Length]) as 'Article'
       ,[Calday]
       ,[Replenish]
-  FROM [DataLake].[Dist].[Movement]
-  where Replenish >0 and LEFT(Style,3) in ('053') and left (Calday,4) in ('2023')
+
+FROM [DataLake].[Dist].[Movement]
+where Replenish >0 and LEFT(Style,3) in ('053') and left (Calday,4) in ('2023')
 )
 
-
 Select * ,
-     DATEDIFF(day, Createdon,ActualGIdate) as 'DC Process Days',
+         DATEDIFF(day, Createdon,ActualGIdate) as 'DC Process Days',
 	 (select TOP(1) 
-         replen.Calday 
-		 from replen
-         where replen.Article = del.Custmaterial and
-		       replen.Store = del.[Ship-To-Store] and
-               replen.Calday > del.ActualGIdate
-		 order by replen.Calday Asc
-      ) as Replen_Date
-
+                 replen.Calday 
+	  from replen
+          where replen.Article = del.Custmaterial and
+		replen.Store = del.[Ship-To-Store] and
+                replen.Calday > del.ActualGIdate
+          order by replen.Calday Asc
+      )
+as Replen_Date
 
 from del
 left join loc on loc.Store = del.[Ship-To-Store]
-
 left join sty on sty.Style = del.Material
 
-
-
-where Country in ('NL','FR','AT','DE') and DistributionChannel in ('30') and ShippingPoint in ('1801') and Custmaterial <>''
+where Country in ('NL','FR','AT','DE') and
+                 DistributionChannel in ('30') and
+                 ShippingPoint in ('1801') and Custmaterial <>''
 order by [Ship-To-Store], Createdon
 
 ```
 ### Option_MKD_FP
+
 ```
 SELECT 
        [Style] + [Colour] + [Length] as Opt,
@@ -466,30 +465,28 @@ SELECT
        CASE 
          WHEN mkd.ctp <> mkd.upr THEN 'HMK' 
          ELSE 'FP' 
-       END         AS MKD_Flag
+       END AS MKD_Flag
 	    
-  FROM [DataLake].[Dist].[EOH_LastSunday] as E
-  left join(
-  
-             SELECT DISTINCT [style] + [colour] + [Length]  AS Opt, 
-                             [country], 
-                             [validfrom], 
-                             [validto], 
-                             [pri_upr_inclvat_bc] AS UPR, 
-                             [pri_ctp_inclvat_bc] AS CTP 
+FROM [DataLake].[Dist].[EOH_LastSunday] as E
+left join
+(
+SELECT DISTINCT [style] + [colour] + [Length]  AS Opt, 
+                [country], 
+                [validfrom], 
+                [validto], 
+                [pri_upr_inclvat_bc] AS UPR, 
+                [pri_ctp_inclvat_bc] AS CTP 
                               
-             FROM   [DataLake].[BI].[OWL_Prices_Retail] as BI 
-             
-			 inner join dist.Calendar as C
-			  ON c.calday >= BI.[validfrom] 
-                  AND c.calday < BI.[validto]
-		 
-			 WHERE  [country] = 'DE'AND [distributionchannel] = '30' and c.CalDay = '2020-07-12' )
-			 as mkd 
-   
-   on E.Style+E.Colour+E.Length = mkd.Opt
+FROM [DataLake].[BI].[OWL_Prices_Retail] as BI 
+inner join dist.Calendar as C
+ON c.calday >= BI.[validfrom] 
+   AND c.calday < BI.[validto]
 
-  
+WHERE  [country] = 'DE'AND [distributionchannel] = '30' and c.CalDay = '2020-07-12'
+)
+as mkd
+on E.Style+E.Colour+E.Length = mkd.Opt
+
 Where Store in ('1898','1827','1191','1818','1008',
 '1147','1815','1088','1802','1043','1846','1144',
 '1143','1364','1876','1830','1813','1844','1851',
