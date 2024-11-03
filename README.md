@@ -73,11 +73,11 @@ SELECT
     -- ,[Colour]
     -- ,[Length]
     -- ,[Size]
-    CONCAT([Style],[Colour],[Size],[Length]) as Article
-      ,[Calday]
-      ,[NSLS]
-      ,[EOH]
-      ,[Replenish]
+       CONCAT([Style],[Colour],[Size],[Length]) as Article
+       ,[Calday]
+       ,[NSLS]
+       ,[EOH]
+       ,[Replenish]
     
 FROM [DataLake].[Dist].[Movement]
 Where Store in ('1144') and EOH <= 0  and Calday > '2023-01-01' -- and NSLS >0
@@ -89,9 +89,8 @@ SELECT
       CONCAT([Style],[Colour],[Size],[Length]) as 'RE-Article'
       ,[Calday]
       ,[NSLS]
-      
       ,[Replenish]
-	  ,[EOH]
+      ,[EOH]
     
 FROM [DataLake].[Dist].[Movement]
 Where Store in ('1144')  and Calday > '2023-01-01' and Replenish >0  and CONCAT([Style],[Colour],[Size],[Length]) in ('881LA1319961239-42')
