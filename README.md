@@ -156,7 +156,6 @@ SELECT [Store]
       ,[Length]
       ,[Size]
       ,[Calday]
-	  
     --,[NREC]
     --,[NSLS]
     --,[EOH]
@@ -201,7 +200,6 @@ SELECT [Style]
 FROM [Reporting].[MasterDataViews].[ProductStyle]
 group by [Style],[BrandText],[BrandTextShort],[DivisionSet],[MaterialGroup]
 )
-
 
 SELECT nsl.[Store]
       ,nsl.[Style]
@@ -311,7 +309,7 @@ JOIN sys.tables  t
      ON c.object_id = t.object_id
 WHERE c.name LIKE '%EES%'
 ORDER BY TableName
-         ,ColumnName;
+        ,ColumnName;
 
 ```
 
