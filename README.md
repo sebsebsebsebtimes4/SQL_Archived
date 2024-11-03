@@ -503,77 +503,72 @@ Where Store in ('1898','1827','1191','1818','1008',
 ```
 SELECT DISTINCT(P.[Style])
        ,(P.[Style]+p.[Colour]) as 'Option'
-	 
-      ,max([ValidFrom]) as ValidFrom
-      ,Max([ValidTo]) as ValidTo
-      ,Max([PRI_UPR_InclVAT_BC]) as UPR
-      ,Min([PRI_CTP_InclVAT_BC]) as CTP
-      ,min([PRI_LLC_InclVAT_BC]) as LLC
-	  ,min(S.ProductCluster) as ProductCluster
-	  ,min(ProductClusterText) as ProductClusterText
-	  
-	  ,min(m.[ProductClass]) as ProductClass
-	  ,min(left(P.[Style],2)) as SSN
-	  
-  FROM [DataLake].[BI].[OWL_Prices_Retail] as P
+       ,max([ValidFrom]) as ValidFrom
+       ,Max([ValidTo]) as ValidTo
+       ,Max([PRI_UPR_InclVAT_BC]) as UPR
+       ,Min([PRI_CTP_InclVAT_BC]) as CTP
+       ,min([PRI_LLC_InclVAT_BC]) as LLC
+       ,min(S.ProductCluster) as ProductCluster
+       ,min(ProductClusterText) as ProductClusterText
+       ,min(m.[ProductClass]) as ProductClass
+       ,min(left(P.[Style],2)) as SSN
 
-  inner join [DataLake].[Dist].[Calendar] as D
-  ON D.calday >= P.[validfrom] 
-  AND D.calday < P.[validto] 
+FROM [DataLake].[BI].[OWL_Prices_Retail] as P
+inner join [DataLake].[Dist].[Calendar] as D
+      ON D.calday >= P.[validfrom] 
+      AND D.calday < P.[validto] 
 
-  left join [DataLake].[BI].[Style] as S
-  on P.Style = S.Style
+left join [DataLake].[BI].[Style] as S
+     on P.Style = S.Style
 
-  left join [DataLake].[BI].[ProductClusters] as C
-  on S.ProductCluster = C.ProductCluster
+left join [DataLake].[BI].[ProductClusters] as C
+     on S.ProductCluster = C.ProductCluster
 
-  left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
-  on P.[Style]+P.[Colour] = w.[Option]
+left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
+     on P.[Style]+P.[Colour] = w.[Option]
 
-  left join [DataLake].[master].[style] as M
-  on P.[Style] = M.Style
+left join [DataLake].[master].[style] as M
+     on P.[Style] = M.Style
 
-
-  Where Country = 'DE' and D.CalDay = '2020-11-23' and left(P.[Style],2) = '99'
-  group by P.Style,P.[Style]+p.[Colour]
-  order by P.Style,P.[Style]+p.[Colour]
+Where Country = 'DE' and D.CalDay = '2020-11-23' and left(P.[Style],2) = '99'
+group by P.Style,P.[Style]+p.[Colour]
+order by P.Style,P.[Style]+p.[Colour]
 
 
 ```
-
 
 ### Option_Price_Retail
 
 ```
-SELECT 
-       p.Style
+SELECT p.Style
       ,max([ValidFrom]) as ValidFrom
       ,Max([ValidTo]) as ValidTo
       ,min([PRI_UPR_InclVAT_BC]) as RetailUPR
       ,Min([PRI_CTP_InclVAT_BC]) as RetailCTP
-   --   ,Min(p.[PRI_UPR_InclVAT_BC]) as EcomUPR
-	  --,Min(p.[PRI_CTP_InclVAT_BC]) as EcomCTP
-	  ,min([PRI_LLC_InclVAT_BC]) as LLC
+    --,Min(p.[PRI_UPR_InclVAT_BC]) as EcomUPR
+    --,Min(p.[PRI_CTP_InclVAT_BC]) as EcomCTP
+      ,min([PRI_LLC_InclVAT_BC]) as LLC
       ,min(S.ProductCluster) as ProductCluster
       ,min(ProductClusterText) as ProductClusterText
       ,min(m.[ProductClass]) as ProductClass
       ,min([Season Start]) as SSN
-  FROM [DataLake].[BI].[OWL_Prices_Retail] as P
-  inner join [DataLake].[Dist].[Calendar] as D
-  ON D.calday >= P.[validfrom] 
-  AND D.calday < P.[validto] 
+
+FROM [DataLake].[BI].[OWL_Prices_Retail] as P
+inner join [DataLake].[Dist].[Calendar] as D
+      ON D.calday >= P.[validfrom] 
+      AND D.calday < P.[validto] 
   
-  left join [DataLake].[BI].[Style] as S
-  on P.Style = S.Style
+left join [DataLake].[BI].[Style] as S
+     on P.Style = S.Style
   
-  left join [DataLake].[BI].[ProductClusters] as C
-  on S.ProductCluster = C.ProductCluster
+left join [DataLake].[BI].[ProductClusters] as C
+     on S.ProductCluster = C.ProductCluster
   
-  left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
-  on P.[Style]+P.[Colour] = w.[Option]
+left join [DataLake].[WSSI_IF].[ADB_PRODUCT] as W
+     on P.[Style]+P.[Colour] = w.[Option]
   
-  left join [DataLake].[master].[style] as M
-  on P.[Style] = M.Style
+left join [DataLake].[master].[style] as M
+     on P.[Style] = M.Style
 
   --left join
   --(SELECT 
@@ -589,29 +584,27 @@ SELECT
   -- group by P.Style)
   -- as E
   -- on P.Style = E.Style 
-  
-  
-  Where Country = 'DE' and D.CalDay = '2020-10-07'
-  group by P.[Style]
+    
+Where Country = 'DE' and D.CalDay = '2020-10-07'
+group by P.[Style]
 
 ```
-
 
 ### Sales_Order_by_Week_Country
+
 ```
 with main as (
-select 
-        [SalesDocument]
-	   ,[CreatedOnDate]
-	   ,[DocumentDate]
-	   ,[Ship-toparty]
-	   ,right([Ship-toparty],4) as 'Store'
+select [SalesDocument]
+      ,[CreatedOnDate]
+      ,[DocumentDate]
+      ,[Ship-toparty]
+      ,right([Ship-toparty],4) as 'Store'
       ,[MaterialGroup]
       ,[Material]
       ,[Color]
       ,CONCAT([Material],Color) as 'SOption'
       ,[Corrqty]
-	  ,[ConfirmedQty]
+      ,[ConfirmedQty]
       ,[DeliveryDate]
       ,[RejectionReason]
       ,[Size]
@@ -624,23 +617,24 @@ select
       ,[EAN11]
       ,[ShippingPoint]
       ,[Plant]
-  FROM [DataLake].[AFS].[SalesOrder]
-  where DocumentDate between '2023-11-27' and '2023-12-03' and Corrqty > 0
+
+FROM [DataLake].[AFS].[SalesOrder]
+where DocumentDate between '2023-11-27' and '2023-12-03' and Corrqty > 0
   ),
 
-  loc as (
-  SELECT [Store]
+loc as (
+SELECT [Store]
       ,[StoreName]
-	  ,[Country]
+      ,[Country]
       ,[SalesOrganization]
       ,[DistributionChannel]
-	  ,Region
-	  ,RegionText
-	  ,CASE
-    WHEN DistributionChannel = 30 THEN 'Retail'
-	WHEN DistributionChannel = 31 THEN 'Ecom'
-    ELSE 'Outlet'
-    END as 'Channel'
+      ,Region
+      ,RegionText
+      ,CASE
+WHEN DistributionChannel = 30 THEN 'Retail'
+WHEN DistributionChannel = 31 THEN 'Ecom'
+     ELSE 'Outlet'
+     END as 'Channel'
 FROM [DataLake].[Retail].[Store]
 ),
 
